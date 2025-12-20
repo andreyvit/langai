@@ -245,12 +245,15 @@ func renderDocument(doc langai.Document) string {
 	return "\n\n--- " + name + " ---\n" + doc.Text + "\n--- end " + name + " ---\n\n"
 }
 
-func mapTools(in []langai.Tool) []tool {
+func mapTools(in []*langai.Tool) []tool {
 	if len(in) == 0 {
 		return nil
 	}
 	var decls []functionDeclaration
 	for _, t := range in {
+		if t == nil {
+			continue
+		}
 		decls = append(decls, functionDeclaration{
 			Name:        t.Name,
 			Description: t.Description,

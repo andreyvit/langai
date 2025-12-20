@@ -277,12 +277,15 @@ func mapCacheControl(c langai.CacheControl) *cacheControl {
 	}
 }
 
-func mapTools(in []langai.Tool) []tool {
+func mapTools(in []*langai.Tool) []tool {
 	if len(in) == 0 {
 		return nil
 	}
 	out := make([]tool, 0, len(in))
 	for _, t := range in {
+		if t == nil {
+			continue
+		}
 		out = append(out, tool{
 			Name:        t.Name,
 			Description: t.Description,

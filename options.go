@@ -48,7 +48,7 @@ type Options struct {
 	TopP            float64
 	Stop            []string
 
-	Tools      []Tool
+	Tools      []*Tool
 	ToolChoice ToolChoice
 
 	ResponseFormat ResponseFormat

@@ -13,6 +13,16 @@ type Tool struct {
 
 	// InputSchema is a JSON Schema object.
 	InputSchema json.RawMessage
+
+	// Run executes the tool.
+	//
+	// If you use tool calling with agent.Run, this function is invoked whenever
+	// the model requests a tool call with Tool.Name.
+	//
+	// It should typically return a ToolResult with ToolCallID set to call.ID
+	// and Name set to call.Name (but agent.Run fills missing fields
+	// defensively).
+	Run func(ctx context.Context, call ToolCall) (ToolResult, error)
 }
 
 type ToolCall struct {
@@ -42,11 +52,6 @@ type ToolResult struct {
 	ContentJSON json.RawMessage
 
 	IsError bool
-}
-
-type Toolset interface {
-	Tools() []Tool
-	Call(ctx context.Context, call ToolCall) (ToolResult, error)
 }
 
 func ToolCallPart(call ToolCall) *Part {

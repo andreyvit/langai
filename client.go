@@ -2,6 +2,10 @@ package langai
 
 import "context"
 
+type Client interface {
+	Complete(ctx context.Context, req Request) (*Response, error)
+}
+
 type Request struct {
 	Messages []Message
 	Options  Options
@@ -33,19 +37,15 @@ func (r *Response) Text() string {
 	return out
 }
 
-func (r *Response) ToolCalls() []ToolCall {
-	var out []ToolCall
+func (r *Response) ToolCalls() []*ToolCall {
+	var out []*ToolCall
 	for _, part := range r.Message.Parts {
 		if part == nil {
 			continue
 		}
 		if part.Type == PartToolCall && part.ToolCall != nil {
-			out = append(out, *part.ToolCall)
+			out = append(out, part.ToolCall)
 		}
 	}
 	return out
-}
-
-type Client interface {
-	Complete(ctx context.Context, req Request) (*Response, error)
 }

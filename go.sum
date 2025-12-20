@@ -1,2 +1,4 @@
 github.com/andreyvit/httpcall v0.8.0 h1:6NkWo1xdj9GmyOKRBsFvJrrLVzsZhrStYJycJsWikWQ=
 github.com/andreyvit/httpcall v0.8.0/go.mod h1:MqbAbqO8TvxHYI1vUDJNP3X4+5zzLB2DkSx68deE+oM=
+github.com/bmatcuk/doublestar/v4 v4.9.1 h1:X8jg9rRZmJd4yRy7ZeNDRnM+T3ZfHv15JiBJ/avrEXE=
+github.com/bmatcuk/doublestar/v4 v4.9.1/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=

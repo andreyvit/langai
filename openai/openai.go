@@ -216,7 +216,10 @@ func mapRegularMessage(msg langai.Message) (chatMessage, error) {
 		if text != "" {
 			parts = append(parts, chatContentPart{Type: "text", Text: text})
 		}
-		return chatMessage{Role: role, ContentParts: parts, ToolCalls: toolCalls}, nil
+		return chatMessage{Role: role, Content: parts, ToolCalls: toolCalls}, nil
+	}
+	if text == "" && len(toolCalls) != 0 {
+		text = ""
 	}
 	return chatMessage{Role: role, Content: text, ToolCalls: toolCalls}, nil
 }
@@ -258,12 +261,15 @@ func imageURL(img langai.Image) (string, error) {
 	return "data:" + img.MediaType + ";base64," + base64.StdEncoding.EncodeToString(img.Data), nil
 }
 
-func mapTools(in []langai.Tool) []chatTool {
+func mapTools(in []*langai.Tool) []chatTool {
 	if len(in) == 0 {
 		return nil
 	}
 	out := make([]chatTool, 0, len(in))
 	for _, t := range in {
+		if t == nil {
+			continue
+		}
 		out = append(out, chatTool{
 			Type: "function",
 			Function: chatToolFunction{
@@ -340,9 +346,8 @@ type chatRequest struct {
 type chatMessage struct {
 	Role string `json:"role"`
 
-	// One of these:
-	Content      string            `json:"content,omitempty"`
-	ContentParts []chatContentPart `json:"content,omitempty"`
+	// Content is either a string or an array of parts (for multimodal).
+	Content any `json:"content,omitempty"`
 
 	// Tool result message:
 	ToolCallID string `json:"tool_call_id,omitempty"`

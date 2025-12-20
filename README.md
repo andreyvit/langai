@@ -20,8 +20,16 @@ go get github.com/andreyvit/langai@latest
 Example (tool calling, sketch):
 
 ```go
-fsTools, _ := agenttools.NewFS(agenttools.FSConfig{Root: "."})
 client := openai.New(openai.Config{APIKey: os.Getenv("OPENAI_API_KEY")})
+fsTools, _ := fstools.New(map[string]string{
+	"/":        ".",
+	"/lifebase": "/Users/me/lifebase",
+}, fstools.Options{})
+tools := []*langai.Tool{
+	fsTools.ListTool(),
+	fsTools.ReadTool(),
+}
+
 req := langai.Request{
 	Messages: []langai.Message{
 		langai.System(langai.Text("You are a helpful assistant.")),
@@ -29,13 +37,11 @@ req := langai.Request{
 	},
 	Options: langai.Options{
 		Model: "gpt-4o-mini",
-		// Expose a standard filesystem toolset to the model.
-		// (Your app is responsible for actually executing tool calls.)
-		Tools: fsTools.Tools(),
 	},
 }
-resp, err := client.Complete(context.Background(), req)
-_ = resp
+
+result, err := agent.Run(context.Background(), client, tools, req, agent.RunOptions{})
+_ = result
 _ = err
 ```
 
