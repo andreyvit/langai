@@ -144,9 +144,9 @@ func (t *FS) ListTool() *langai.Tool {
 		InputSchema: langai.MustMarshalJSON(map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"path":      map[string]any{"type": "string", "description": "Virtual directory path like \"/\" or \"/lifebase\"."},
-				"recursive": map[string]any{"type": "boolean"},
-				"max":       map[string]any{"type": "integer", "minimum": 1, "maximum": 5000},
+				"path":  map[string]any{"type": "string", "description": "Virtual directory path like \"/\" or \"/lifebase\"."},
+				"depth": map[string]any{"type": "integer", "minimum": 1, "maximum": 10, "description": "Directory depth to traverse, default 2."},
+				"max":   map[string]any{"type": "integer", "minimum": 1, "maximum": 5000},
 			},
 			"required":             []string{"path"},
 			"additionalProperties": false,
@@ -154,17 +154,20 @@ func (t *FS) ListTool() *langai.Tool {
 		Run: func(ctx context.Context, call langai.ToolCall) (langai.ToolResult, error) {
 			_ = ctx
 			var in struct {
-				Path      string `json:"path"`
-				Recursive bool   `json:"recursive"`
-				Max       int    `json:"max"`
+				Path  string `json:"path"`
+				Depth int    `json:"depth"`
+				Max   int    `json:"max"`
 			}
 			if err := call.UnmarshalInput(&in); err != nil {
 				return toolErr(call, err), nil
 			}
+			if in.Depth <= 0 {
+				in.Depth = 2
+			}
 			if in.Max <= 0 {
 				in.Max = 1000
 			}
-			items, err := t.listFiles(in.Path, in.Recursive, in.Max)
+			items, err := t.listFiles(in.Path, in.Depth, in.Max)
 			if err != nil {
 				return toolErr(call, err), nil
 			}
@@ -263,6 +266,9 @@ func (t *FS) ReadTool() *langai.Tool {
 			}
 
 			var out strings.Builder
+			// Add line count summary
+			fmt.Fprintf(&out, "[%d lines of file content]\n", len(allLines))
+
 			switch in.Format {
 			case "numbered":
 				for i, line := range allLines {
@@ -372,12 +378,11 @@ func (t *FS) MkdirTool() *langai.Tool {
 }
 
 type FileInfo struct {
-	Path  string `json:"path"`
-	IsDir bool   `json:"is_dir"`
-	Size  int64  `json:"size,omitempty"`
+	Path string `json:"path"`
+	Size int64  `json:"size,omitempty"`
 }
 
-func (t *FS) listFiles(dir string, recursive bool, max int) ([]FileInfo, error) {
+func (t *FS) listFiles(dir string, depth int, max int) ([]FileInfo, error) {
 	phys, virtDir, err := t.resolve(dir, true)
 	if err != nil {
 		return nil, err
@@ -390,31 +395,9 @@ func (t *FS) listFiles(dir string, recursive bool, max int) ([]FileInfo, error) 
 		return nil, errors.New("path is not a directory")
 	}
 
-	if !recursive {
-		entries, err := os.ReadDir(phys)
-		if err != nil {
-			return nil, err
-		}
-		out := make([]FileInfo, 0, min(max, len(entries)))
-		for _, e := range entries {
-			if len(out) >= max {
-				break
-			}
-			p := joinVirtual(virtDir, e.Name())
-			info := FileInfo{Path: p, IsDir: e.IsDir()}
-			if !e.IsDir() {
-				if fi, err := e.Info(); err == nil {
-					info.Size = fi.Size()
-				}
-			}
-			out = append(out, info)
-		}
-		sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
-		return out, nil
-	}
-
 	var out []FileInfo
 	stop := errors.New("stop")
+
 	err = filepath.WalkDir(phys, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -425,12 +408,35 @@ func (t *FS) listFiles(dir string, recursive bool, max int) ([]FileInfo, error) 
 		if len(out) >= max {
 			return stop
 		}
+
 		rel, err := filepath.Rel(phys, p)
 		if err != nil {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		info := FileInfo{Path: joinVirtual(virtDir, rel), IsDir: d.IsDir()}
+
+		// Check depth
+		slashCount := 0
+		for _, c := range rel {
+			if c == '/' {
+				slashCount++
+			}
+		}
+		currentDepth := slashCount + 1
+
+		if currentDepth > depth {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		vpath := joinVirtual(virtDir, rel)
+		if d.IsDir() {
+			vpath += "/"
+		}
+
+		info := FileInfo{Path: vpath}
 		if !d.IsDir() {
 			if fi, err := d.Info(); err == nil {
 				info.Size = fi.Size()

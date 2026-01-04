@@ -85,7 +85,7 @@ func TestFS_ReadRangeSearchStatAndEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if readNumberedRes.Content != "1→one\n" {
+	if readNumberedRes.Content != "[1 lines of file content]\n1→one\n" {
 		t.Fatalf("unexpected numbered output: %q", readNumberedRes.Content)
 	}
 
@@ -104,7 +104,7 @@ func TestFS_ReadRangeSearchStatAndEdits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rangeRes.Content != "two\nthree\n" {
+	if rangeRes.Content != "[2 lines of file content]\ntwo\nthree\n" {
 		t.Fatalf("unexpected range content: %q", rangeRes.Content)
 	}
 
