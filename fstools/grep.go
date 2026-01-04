@@ -1,7 +1,6 @@
 package fstools
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/andreyvit/langai"
 	"github.com/bmatcuk/doublestar/v4"
@@ -198,10 +196,7 @@ func (t *FS) GrepTool() *langai.Tool {
 				if err != nil {
 					return nil
 				}
-				if bytes.IndexByte(b, 0) >= 0 {
-					return nil
-				}
-				if !utf8.Valid(b) {
+				if isBinaryFileBytes(b) {
 					return nil
 				}
 

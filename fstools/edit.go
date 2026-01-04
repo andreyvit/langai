@@ -59,6 +59,9 @@ func (t *FS) EditTool() *langai.Tool {
 			if err != nil {
 				return toolErr(call, err), nil
 			}
+			if isBinaryFileBytes(b) {
+				return toolErr(call, errors.New("file appears to be binary or not valid UTF-8")), nil
+			}
 			text := string(b)
 			count := strings.Count(text, in.OldString)
 			if count == 0 {
@@ -111,7 +114,7 @@ func (t *FS) EditTool() *langai.Tool {
 				return toolErr(call, err), nil
 			}
 
-			mode := st.Mode() & 0o777
+			mode := st.Mode().Perm()
 			if mode == 0 {
 				mode = t.filePerm()
 			}

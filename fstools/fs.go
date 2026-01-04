@@ -232,6 +232,9 @@ func (t *FS) ReadTool() *langai.Tool {
 			if err != nil {
 				return toolErr(call, err), nil
 			}
+			if isBinaryFileBytes(b) {
+				return toolErr(call, errors.New("file appears to be binary or not valid UTF-8")), nil
+			}
 
 			text := strings.ReplaceAll(string(b), "\r\n", "\n")
 			text = strings.ReplaceAll(text, "\r", "\n")
