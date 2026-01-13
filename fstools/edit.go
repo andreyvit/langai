@@ -122,6 +122,7 @@ func (t *FS) EditTool() *langai.Tool {
 			if err := os.WriteFile(phys, []byte(replaced), mode); err != nil {
 				return toolErr(call, err), nil
 			}
+			t.markTouched(vpath)
 			return toolJSON(call, map[string]any{
 				"ok":           true,
 				"path":         vpath,
@@ -181,6 +182,7 @@ func (t *FS) DeleteTool() *langai.Tool {
 			if err != nil {
 				return toolErr(call, err), nil
 			}
+			t.markTouched(vpath)
 			return toolJSON(call, map[string]any{"ok": true, "path": vpath, "existed": true}), nil
 		},
 	}
@@ -231,6 +233,8 @@ func (t *FS) MoveTool() *langai.Tool {
 				_ = os.Remove(dst)
 			}
 			if err := os.Rename(src, dst); err == nil {
+				t.markTouched(srcV)
+				t.markTouched(dstV)
 				return toolJSON(call, map[string]any{"ok": true, "from": srcV, "to": dstV}), nil
 			}
 
@@ -240,6 +244,8 @@ func (t *FS) MoveTool() *langai.Tool {
 			if err := os.Remove(src); err != nil {
 				return toolErr(call, err), nil
 			}
+			t.markTouched(srcV)
+			t.markTouched(dstV)
 			return toolJSON(call, map[string]any{"ok": true, "from": srcV, "to": dstV}), nil
 		},
 	}
@@ -291,6 +297,7 @@ func (t *FS) CopyTool() *langai.Tool {
 			if err := copyFile(src, dst, t.filePerm()); err != nil {
 				return toolErr(call, err), nil
 			}
+			t.markTouched(dstV)
 			return toolJSON(call, map[string]any{"ok": true, "from": srcV, "to": dstV}), nil
 		},
 	}

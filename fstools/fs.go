@@ -33,6 +33,9 @@ type FS struct {
 
 	readMu    sync.Mutex
 	readFiles map[string]bool // cleaned virtual file paths
+
+	touchedMu sync.Mutex
+	touched   map[string]ModSummary // cleaned virtual file paths
 }
 
 type mountPoint struct {
@@ -104,7 +107,27 @@ func New(mountPoints map[string]string, opt Options) (*FS, error) {
 		return mounts[i].Virtual < mounts[j].Virtual
 	})
 
-	return &FS{mounts: mounts, opt: opt, readFiles: make(map[string]bool)}, nil
+	return &FS{mounts: mounts, opt: opt, readFiles: make(map[string]bool), touched: make(map[string]ModSummary)}, nil
+}
+
+// TouchedFiles returns a copy of the set of files modified via fstools.
+func (t *FS) TouchedFiles() map[string]ModSummary {
+	t.touchedMu.Lock()
+	defer t.touchedMu.Unlock()
+	out := make(map[string]ModSummary, len(t.touched))
+	for k, v := range t.touched {
+		out[k] = v
+	}
+	return out
+}
+
+func (t *FS) markTouched(vpath string) {
+	if strings.TrimSpace(vpath) == "" {
+		return
+	}
+	t.touchedMu.Lock()
+	defer t.touchedMu.Unlock()
+	t.touched[vpath] = ModSummary{}
 }
 
 func (t *FS) ReadOnlyTools() []*langai.Tool {
@@ -453,18 +476,22 @@ func (t *FS) listFiles(dir string, depth int, max int) ([]FileInfo, error) {
 }
 
 func (t *FS) writeFile(p, content string) error {
-	phys, _, err := t.resolve(p, false)
+	phys, vpath, err := t.resolve(p, false)
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(phys), t.dirPerm()); err != nil {
 		return err
 	}
-	return os.WriteFile(phys, []byte(content), t.filePerm())
+	if err := os.WriteFile(phys, []byte(content), t.filePerm()); err != nil {
+		return err
+	}
+	t.markTouched(vpath)
+	return nil
 }
 
 func (t *FS) appendFile(p, content string) error {
-	phys, _, err := t.resolve(p, false)
+	phys, vpath, err := t.resolve(p, false)
 	if err != nil {
 		return err
 	}
@@ -477,7 +504,11 @@ func (t *FS) appendFile(p, content string) error {
 	}
 	defer f.Close()
 	_, err = f.WriteString(content)
-	return err
+	if err != nil {
+		return err
+	}
+	t.markTouched(vpath)
+	return nil
 }
 
 func (t *FS) mkdir(p string) error {

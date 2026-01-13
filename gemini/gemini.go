@@ -74,6 +74,9 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 	if c.cfg.Configure != nil {
 		c.cfg.Configure(r)
 	}
+	if req.ConfigureRequest != nil {
+		req.ConfigureRequest(r)
+	}
 	if err := r.Do(); err != nil {
 		return nil, err
 	}
@@ -110,6 +113,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		Model:       model,
 		Message:     resultMsg,
 		Usage:       usage,
+		Cost:        func() langai.Price { c, _ := langai.EstimateCost(langai.ProviderGemini, model, usage); return c }(),
 		RawResponse: r.RawResponseBody,
 	}, nil
 }

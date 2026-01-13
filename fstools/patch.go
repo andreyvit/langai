@@ -262,7 +262,7 @@ func (t *FS) applyPatch(p *patch, dryRun bool) error {
 }
 
 func (t *FS) applyAdd(op patchOp, dryRun bool) error {
-	full, _, err := t.resolve(op.Path, false)
+	full, vpath, err := t.resolve(op.Path, false)
 	if err != nil {
 		return err
 	}
@@ -279,11 +279,15 @@ func (t *FS) applyAdd(op patchOp, dryRun bool) error {
 	if len(op.AddLines) > 0 {
 		content += "\n"
 	}
-	return os.WriteFile(full, []byte(content), t.filePerm())
+	if err := os.WriteFile(full, []byte(content), t.filePerm()); err != nil {
+		return err
+	}
+	t.markTouched(vpath)
+	return nil
 }
 
 func (t *FS) applyDelete(op patchOp, dryRun bool) error {
-	full, _, err := t.resolve(op.Path, false)
+	full, vpath, err := t.resolve(op.Path, false)
 	if err != nil {
 		return err
 	}
@@ -291,11 +295,15 @@ func (t *FS) applyDelete(op patchOp, dryRun bool) error {
 		_, err := os.Stat(full)
 		return err
 	}
-	return os.Remove(full)
+	if err := os.Remove(full); err != nil {
+		return err
+	}
+	t.markTouched(vpath)
+	return nil
 }
 
 func (t *FS) applyUpdate(op patchOp, dryRun bool) error {
-	full, _, err := t.resolve(op.Path, false)
+	full, vpath, err := t.resolve(op.Path, false)
 	if err != nil {
 		return err
 	}
@@ -328,7 +336,11 @@ func (t *FS) applyUpdate(op patchOp, dryRun bool) error {
 	if hasTrailingNL || len(lines) > 0 {
 		out += "\n"
 	}
-	return os.WriteFile(full, []byte(out), t.filePerm())
+	if err := os.WriteFile(full, []byte(out), t.filePerm()); err != nil {
+		return err
+	}
+	t.markTouched(vpath)
+	return nil
 }
 
 func applyHunk(lines []string, h patchHunk) ([]string, error) {

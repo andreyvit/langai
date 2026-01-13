@@ -23,6 +23,8 @@ const (
 	PartText       PartType = "text"
 	PartImage      PartType = "image"
 	PartDocument   PartType = "document"
+	PartThinking   PartType = "thinking"
+	PartRedacted   PartType = "redacted_thinking"
 	PartToolCall   PartType = "tool_call"
 	PartToolResult PartType = "tool_result"
 )

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/andreyvit/httpcall"
 	"github.com/andreyvit/langai"
@@ -50,16 +51,18 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		return nil, err
 	}
 
+	maxTok := maxOutputTokensParam(model, req.Options.MaxOutputTokens)
 	body := &chatRequest{
-		Model:          model,
-		Messages:       inMsgs,
-		MaxTokens:      req.Options.MaxOutputTokens,
-		Temperature:    req.Options.Temperature,
-		TopP:           req.Options.TopP,
-		Stop:           req.Options.Stop,
-		ResponseFormat: mapResponseFormat(req.Options.ResponseFormat),
-		Tools:          mapTools(req.Options.Tools),
-		ToolChoice:     mapToolChoice(req.Options.ToolChoice),
+		Model:               model,
+		Messages:            inMsgs,
+		MaxTokens:           maxTok.MaxTokens,
+		MaxCompletionTokens: maxTok.MaxCompletionTokens,
+		Temperature:         req.Options.Temperature,
+		TopP:                req.Options.TopP,
+		Stop:                req.Options.Stop,
+		ResponseFormat:      mapResponseFormat(req.Options.ResponseFormat),
+		Tools:               mapTools(req.Options.Tools),
+		ToolChoice:          mapToolChoice(req.Options.ToolChoice),
 	}
 
 	var out chatResponse
@@ -80,10 +83,30 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		}(),
 		Headers: http.Header{
 			"Authorization": []string{"Bearer " + c.cfg.APIKey},
+			"Accept":        []string{"application/json"},
+			"User-Agent":    []string{"langai"},
 		},
+	}
+	r.ParseErrorResponse = func(r *httpcall.Request) {
+		if r == nil || r.Error == nil {
+			return
+		}
+		// OpenAI application-level errors are JSON. If we get an HTML/plain-text 4xx,
+		// it's typically a transient edge/proxy failure (e.g. Cloudflare) rather than
+		// a real "bad request" from the API, so retry it.
+		if r.Error.StatusCode >= 400 && r.Error.StatusCode <= 499 && !looksLikeJSON(r.Error.RawResponseBody) {
+			r.Error.IsNetwork = true
+			r.Error.IsRetriable = true
+			if r.Error.Message == "" {
+				r.Error.Message = "non-JSON 4xx response"
+			}
+		}
 	}
 	if c.cfg.Configure != nil {
 		c.cfg.Configure(r)
+	}
+	if req.ConfigureRequest != nil {
+		req.ConfigureRequest(r)
 	}
 	if err := r.Do(); err != nil {
 		return nil, err
@@ -108,11 +131,22 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		}))
 	}
 
+	usage := langai.Usage{
+		InputTokens:  out.Usage.PromptTokens,
+		OutputTokens: out.Usage.CompletionTokens,
+		TotalTokens:  out.Usage.TotalTokens,
+	}
+	if out.Usage.PromptTokensDetails != nil {
+		usage.CacheReadInputTokens = out.Usage.PromptTokensDetails.CachedTokens
+	}
+	cost, _ := langai.EstimateCost(langai.ProviderOpenAI, out.Model, usage)
+
 	return &langai.Response{
 		Provider:    langai.ProviderOpenAI,
 		Model:       out.Model,
 		Message:     resultMsg,
-		Usage:       langai.Usage{InputTokens: out.Usage.PromptTokens, OutputTokens: out.Usage.CompletionTokens, TotalTokens: out.Usage.TotalTokens},
+		Usage:       usage,
+		Cost:        cost,
 		RawResponse: r.RawResponseBody,
 	}, nil
 }
@@ -337,10 +371,64 @@ type chatRequest struct {
 
 	ResponseFormat any `json:"response_format,omitempty"`
 
-	MaxTokens   int      `json:"max_tokens,omitempty"`
+	// Some models (e.g. gpt-5.*) require max_completion_tokens instead of max_tokens.
+	MaxTokens           int `json:"max_tokens,omitempty"`
+	MaxCompletionTokens int `json:"max_completion_tokens,omitempty"`
+
 	Temperature float64  `json:"temperature,omitempty"`
 	TopP        float64  `json:"top_p,omitempty"`
 	Stop        []string `json:"stop,omitempty"`
+}
+
+type maxTokensParam struct {
+	MaxTokens           int
+	MaxCompletionTokens int
+}
+
+func maxOutputTokensParam(model string, max int) maxTokensParam {
+	if max <= 0 {
+		return maxTokensParam{}
+	}
+	if requiresMaxCompletionTokens(model) {
+		return maxTokensParam{MaxCompletionTokens: max}
+	}
+	return maxTokensParam{MaxTokens: max}
+}
+
+func requiresMaxCompletionTokens(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	// OpenAI gpt-5.* models error out on `max_tokens` and require `max_completion_tokens`.
+	return strings.HasPrefix(model, "gpt-5")
+}
+
+func looksLikeJSON(b []byte) bool {
+	b = bytesTrimSpace(b)
+	if len(b) == 0 {
+		return false
+	}
+	return b[0] == '{' || b[0] == '['
+}
+
+func bytesTrimSpace(b []byte) []byte {
+	i := 0
+	for i < len(b) {
+		switch b[i] {
+		case ' ', '\n', '\r', '\t':
+			i++
+			continue
+		}
+		break
+	}
+	j := len(b)
+	for j > i {
+		switch b[j-1] {
+		case ' ', '\n', '\r', '\t':
+			j--
+			continue
+		}
+		break
+	}
+	return b[i:j]
 }
 
 type chatMessage struct {
@@ -409,4 +497,10 @@ type chatUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+
+	PromptTokensDetails *promptTokensDetails `json:"prompt_tokens_details,omitempty"`
+}
+
+type promptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
 }

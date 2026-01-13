@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/andreyvit/httpcall"
 	"github.com/andreyvit/langai"
@@ -45,10 +46,17 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 	}
 	maxTokens := req.Options.MaxOutputTokens
 	if maxTokens == 0 {
-		maxTokens = 1024
+		if req.ThinkingBudget > 0 {
+			maxTokens = req.ThinkingBudget + 1024
+		} else {
+			maxTokens = 1024
+		}
+	}
+	if req.ThinkingBudget > 0 && maxTokens <= req.ThinkingBudget {
+		return nil, fmt.Errorf("anthropic: thinking budget (%d) must be less than max_tokens (%d)", req.ThinkingBudget, maxTokens)
 	}
 
-	systemBlocks, msgs, err := mapMessages(req.Messages)
+	systemBlocks, msgs, err := mapMessages(req.Messages, req.CacheMode)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +64,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 	body := &messagesRequest{
 		Model:         model,
 		MaxTokens:     maxTokens,
+		Thinking:      mapThinking(req.ThinkingBudget),
 		System:        systemBlocks,
 		Messages:      msgs,
 		Temperature:   req.Options.Temperature,
@@ -81,8 +90,15 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 			"anthropic-version": []string{anthropicVersion(c.cfg.AnthropicVersion)},
 		},
 	}
+	if req.ThinkingBudget > 0 && len(req.Options.Tools) != 0 {
+		// Enables interleaved thinking for tool use (Claude 4 models).
+		r.Headers.Set("anthropic-beta", "interleaved-thinking-2025-05-14")
+	}
 	if c.cfg.Configure != nil {
 		c.cfg.Configure(r)
+	}
+	if req.ConfigureRequest != nil {
+		req.ConfigureRequest(r)
 	}
 	if err := r.Do(); err != nil {
 		return nil, err
@@ -91,6 +107,10 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 	resultMsg := langai.Message{Role: langai.RoleAssistant}
 	for _, b := range out.Content {
 		switch b.Type {
+		case "thinking":
+			resultMsg.Parts = append(resultMsg.Parts, langai.Thinking(b.Thinking, b.Signature))
+		case "redacted_thinking":
+			resultMsg.Parts = append(resultMsg.Parts, langai.RedactedThinking(b.Data))
 		case "text":
 			resultMsg.Parts = append(resultMsg.Parts, langai.Text(b.Text))
 		case "tool_use":
@@ -116,6 +136,16 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 			CacheReadInputTokens:     out.Usage.CacheReadInputTokens,
 			CacheCreationInputTokens: out.Usage.CacheCreationInputTokens,
 		},
+		Cost: func() langai.Price {
+			u := langai.Usage{
+				InputTokens:              out.Usage.InputTokens,
+				OutputTokens:             out.Usage.OutputTokens,
+				CacheReadInputTokens:     out.Usage.CacheReadInputTokens,
+				CacheCreationInputTokens: out.Usage.CacheCreationInputTokens,
+			}
+			c, _ := langai.EstimateCost(langai.ProviderAnthropic, out.Model, u)
+			return c
+		}(),
 		RawResponse: r.RawResponseBody,
 	}, nil
 }
@@ -141,7 +171,7 @@ func maxAttempts(v int) int {
 	return v
 }
 
-func mapMessages(in []langai.Message) (system []contentBlock, messages []message, err error) {
+func mapMessages(in []langai.Message, cacheMode langai.CacheMode) (system []contentBlock, messages []message, err error) {
 	for _, msg := range in {
 		switch msg.Role {
 		case langai.RoleSystem:
@@ -149,11 +179,17 @@ func mapMessages(in []langai.Message) (system []contentBlock, messages []message
 			if err != nil {
 				return nil, nil, err
 			}
+			if msg.IsCacheBreakpoint && cacheMode != langai.CacheModeNone {
+				blocks = applyCacheBreakpoint(blocks, cacheMode)
+			}
 			system = append(system, blocks...)
 		case langai.RoleUser, langai.RoleAssistant:
 			blocks, err := mapBlocks(msg.Parts, allowToolUse(msg.Role == langai.RoleAssistant), allowToolResult(false))
 			if err != nil {
 				return nil, nil, err
+			}
+			if msg.IsCacheBreakpoint && cacheMode != langai.CacheModeNone {
+				blocks = applyCacheBreakpoint(blocks, cacheMode)
 			}
 			messages = append(messages, message{
 				Role:    string(msg.Role),
@@ -163,6 +199,9 @@ func mapMessages(in []langai.Message) (system []contentBlock, messages []message
 			blocks, err := mapBlocks(msg.Parts, allowToolUse(false), allowToolResult(true))
 			if err != nil {
 				return nil, nil, err
+			}
+			if msg.IsCacheBreakpoint && cacheMode != langai.CacheModeNone {
+				blocks = applyCacheBreakpoint(blocks, cacheMode)
 			}
 			messages = append(messages, message{
 				Role:    "user",
@@ -186,6 +225,29 @@ func mapBlocks(parts []*langai.Part, allowToolUse allowToolUse, allowToolResult 
 			continue
 		}
 		switch p.Type {
+		case langai.PartThinking:
+			if !bool(allowToolUse) {
+				return nil, errors.New("anthropic: thinking blocks are only allowed in assistant messages")
+			}
+			if p.Thinking == nil {
+				continue
+			}
+			out = append(out, contentBlock{
+				Type:      "thinking",
+				Thinking:  p.Thinking.Thinking,
+				Signature: p.Thinking.Signature,
+			})
+		case langai.PartRedacted:
+			if !bool(allowToolUse) {
+				return nil, errors.New("anthropic: redacted thinking blocks are only allowed in assistant messages")
+			}
+			if p.Redacted == nil {
+				continue
+			}
+			out = append(out, contentBlock{
+				Type: "redacted_thinking",
+				Data: p.Redacted.Data,
+			})
 		case langai.PartText:
 			out = append(out, contentBlock{
 				Type:         "text",
@@ -316,6 +378,8 @@ type messagesRequest struct {
 	Model     string `json:"model"`
 	MaxTokens int    `json:"max_tokens"`
 
+	Thinking *thinkingConfig `json:"thinking,omitempty"`
+
 	System   []contentBlock `json:"system,omitempty"`
 	Messages []message      `json:"messages"`
 
@@ -337,6 +401,10 @@ type contentBlock struct {
 
 	Text string `json:"text,omitempty"`
 
+	Thinking  string `json:"thinking,omitempty"`
+	Signature string `json:"signature,omitempty"`
+	Data      string `json:"data,omitempty"`
+
 	Source *imageSource `json:"source,omitempty"`
 
 	ID    string `json:"id,omitempty"`
@@ -350,6 +418,18 @@ type contentBlock struct {
 	CacheControl *cacheControl `json:"cache_control,omitempty"`
 }
 
+type thinkingConfig struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
+}
+
+func mapThinking(budget int) *thinkingConfig {
+	if budget <= 0 {
+		return nil
+	}
+	return &thinkingConfig{Type: "enabled", BudgetTokens: budget}
+}
+
 type imageSource struct {
 	Type      string `json:"type"`
 	MediaType string `json:"media_type"`
@@ -358,6 +438,48 @@ type imageSource struct {
 
 type cacheControl struct {
 	Type string `json:"type"`
+	TTL  string `json:"ttl,omitempty"`
+}
+
+func applyCacheBreakpoint(blocks []contentBlock, mode langai.CacheMode) []contentBlock {
+	if len(blocks) == 0 {
+		return blocks
+	}
+	for _, b := range blocks {
+		if b.CacheControl != nil {
+			return blocks
+		}
+	}
+
+	cc := cacheControlForMode(mode)
+	if cc == nil {
+		return blocks
+	}
+
+	for i := len(blocks) - 1; i >= 0; i-- {
+		b := blocks[i]
+		if b.CacheControl != nil {
+			return blocks
+		}
+		if b.Type == "text" && strings.TrimSpace(b.Text) == "" {
+			continue
+		}
+		b.CacheControl = cc
+		blocks[i] = b
+		return blocks
+	}
+	return blocks
+}
+
+func cacheControlForMode(mode langai.CacheMode) *cacheControl {
+	switch mode {
+	case langai.CacheModeShortTerm:
+		return &cacheControl{Type: "ephemeral"}
+	case langai.CacheModeLongTerm:
+		return &cacheControl{Type: "ephemeral", TTL: "1h"}
+	default:
+		return nil
+	}
 }
 
 type tool struct {

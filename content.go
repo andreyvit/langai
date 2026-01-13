@@ -4,6 +4,10 @@ type Message struct {
 	Role  Role
 	Name  string
 	Parts []*Part
+
+	// IsCacheBreakpoint marks this message as a prompt-caching breakpoint (if supported by the provider).
+	// When Request.CacheMode != CacheModeNone, providers may translate this into their own cache breakpoint markers.
+	IsCacheBreakpoint bool
 }
 
 type Part struct {
@@ -13,10 +17,22 @@ type Part struct {
 	Image    *Image
 	Document *Document
 
+	Thinking *ThinkingBlock
+	Redacted *RedactedThinkingBlock
+
 	ToolCall   *ToolCall
 	ToolResult *ToolResult
 
 	CacheControl CacheControl
+}
+
+type ThinkingBlock struct {
+	Thinking  string
+	Signature string
+}
+
+type RedactedThinkingBlock struct {
+	Data string
 }
 
 type Image struct {
@@ -43,6 +59,14 @@ func Assistant(parts ...*Part) Message { return Message{Role: RoleAssistant, Par
 
 func Text(s string) *Part {
 	return &Part{Type: PartText, Text: s}
+}
+
+func Thinking(thinking, signature string) *Part {
+	return &Part{Type: PartThinking, Thinking: &ThinkingBlock{Thinking: thinking, Signature: signature}}
+}
+
+func RedactedThinking(data string) *Part {
+	return &Part{Type: PartRedacted, Redacted: &RedactedThinkingBlock{Data: data}}
 }
 
 func ImageURL(mediaType, url string) *Part {
