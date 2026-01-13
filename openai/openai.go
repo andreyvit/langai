@@ -57,6 +57,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		Messages:            inMsgs,
 		MaxTokens:           maxTok.MaxTokens,
 		MaxCompletionTokens: maxTok.MaxCompletionTokens,
+		ReasoningEffort:     reasoningEffort(model, req.ThinkingBudget),
 		Temperature:         req.Options.Temperature,
 		TopP:                req.Options.TopP,
 		Stop:                req.Options.Stop,
@@ -376,6 +377,9 @@ type chatRequest struct {
 	MaxTokens           int `json:"max_tokens,omitempty"`
 	MaxCompletionTokens int `json:"max_completion_tokens,omitempty"`
 
+	// Reasoning controls thinking mode for models that support it (e.g. gpt-5.*).
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+
 	Temperature float64  `json:"temperature,omitempty"`
 	TopP        float64  `json:"top_p,omitempty"`
 	Stop        []string `json:"stop,omitempty"`
@@ -400,6 +404,28 @@ func requiresMaxCompletionTokens(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
 	// OpenAI gpt-5.* models error out on `max_tokens` and require `max_completion_tokens`.
 	return strings.HasPrefix(model, "gpt-5")
+}
+
+func reasoningEffort(model string, thinkingBudget int) string {
+	if thinkingBudget <= 0 {
+		return ""
+	}
+	model = strings.ToLower(strings.TrimSpace(model))
+	if !strings.HasPrefix(model, "gpt-5") {
+		return ""
+	}
+	if strings.Contains(model, "pro") {
+		// gpt-5.*-pro only supports high.
+		return "high"
+	}
+	switch {
+	case thinkingBudget <= 1024:
+		return "low"
+	case thinkingBudget <= 4096:
+		return "medium"
+	default:
+		return "high"
+	}
 }
 
 func looksLikeJSON(b []byte) bool {
