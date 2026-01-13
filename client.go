@@ -37,6 +37,7 @@ type Response struct {
 	Message Message
 	Usage   Usage
 	Cost    Price
+	CostOK  bool
 
 	RawResponse []byte
 }

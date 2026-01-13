@@ -107,13 +107,15 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		OutputTokens: out.UsageMetadata.CandidatesTokenCount,
 		TotalTokens:  out.UsageMetadata.TotalTokenCount,
 	}
+	cost, costOK := langai.EstimateCost(langai.ProviderGemini, model, usage)
 
 	return &langai.Response{
 		Provider:    langai.ProviderGemini,
 		Model:       model,
 		Message:     resultMsg,
 		Usage:       usage,
-		Cost:        func() langai.Price { c, _ := langai.EstimateCost(langai.ProviderGemini, model, usage); return c }(),
+		Cost:        cost,
+		CostOK:      costOK,
 		RawResponse: r.RawResponseBody,
 	}, nil
 }

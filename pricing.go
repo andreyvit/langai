@@ -7,7 +7,7 @@ import (
 
 // ModelPricing defines per-token prices for a model.
 //
-// Price is in 1/1_000_000 of a cent (see usage.go).
+// Price is in 1/1_000_000_000 of a cent (see usage.go).
 type ModelPricing struct {
 	InputTokenPrice  Price
 	OutputTokenPrice Price
@@ -207,7 +207,7 @@ func isDigits(s string) bool {
 
 func defaultModelPricing() map[ProviderID]map[string]ModelPricing {
 	// Prices below are defaults for *estimation* only; callers can override via RegisterModelPricing.
-	// All values are cents per 1M tokens (see usage.go).
+	// All values are Price units per token (see usage.go). If you have a $/1M figure, multiply by 100_000.
 
 	anthropicCacheReadMul := func(input Price) Price { return Price(int64(input) / 10) }     // 0.1x
 	anthropicCacheWriteMul := func(input Price) Price { return Price(int64(input) * 5 / 4) } // 1.25x (5m)
@@ -216,73 +216,87 @@ func defaultModelPricing() map[ProviderID]map[string]ModelPricing {
 	anthropic := map[string]ModelPricing{
 		// Common Anthropic model names (plus a couple of local aliases).
 		"claude-3-5-sonnet": {
-			InputTokenPrice:              300,
-			OutputTokenPrice:             1500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(300),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300),
+			InputTokenPrice:              300_000,
+			OutputTokenPrice:             1_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(300_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
 		},
 		"claude-3-opus": {
-			InputTokenPrice:              1500,
-			OutputTokenPrice:             7500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(1500),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(1500),
+			InputTokenPrice:              1_500_000,
+			OutputTokenPrice:             7_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(1_500_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(1_500_000),
 		},
 		"claude-3-haiku": {
-			InputTokenPrice:              25,
-			OutputTokenPrice:             125,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(25),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(25),
+			InputTokenPrice:              25_000,
+			OutputTokenPrice:             125_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(25_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(25_000),
 		},
 		"claude-3-5-haiku": {
-			InputTokenPrice:              80,
-			OutputTokenPrice:             400,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(80),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(80),
+			InputTokenPrice:              80_000,
+			OutputTokenPrice:             400_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(80_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(80_000),
 		},
 
 		// Local aliases used by lifebase automation.
 		"claude-sonnet-4": {
-			InputTokenPrice:              300,
-			OutputTokenPrice:             1500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(300),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300),
+			InputTokenPrice:              300_000,
+			OutputTokenPrice:             1_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(300_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
 		},
 		"claude-sonnet-4-5": {
-			InputTokenPrice:              300,
-			OutputTokenPrice:             1500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(300),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300),
+			InputTokenPrice:              300_000,
+			OutputTokenPrice:             1_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(300_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
 		},
 		"claude-sonnet-4-5-1m": {
-			InputTokenPrice:              300,
-			OutputTokenPrice:             1500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(300),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300),
+			InputTokenPrice:              300_000,
+			OutputTokenPrice:             1_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(300_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
 		},
 		"claude-opus-4-5": {
-			InputTokenPrice:              500,
-			OutputTokenPrice:             2500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(500),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(500),
+			InputTokenPrice:              500_000,
+			OutputTokenPrice:             2_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(500_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(500_000),
 		},
 		"claude-haiku-4-5": {
-			InputTokenPrice:              100,
-			OutputTokenPrice:             500,
-			CacheReadInputTokenPrice:     anthropicCacheReadMul(100),
-			CacheCreationInputTokenPrice: anthropicCacheWriteMul(100),
+			InputTokenPrice:              100_000,
+			OutputTokenPrice:             500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(100_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(100_000),
 		},
 	}
 
 	openai := map[string]ModelPricing{
 		"gpt-4o": {
-			InputTokenPrice:          500,
-			OutputTokenPrice:         1500,
-			CacheReadInputTokenPrice: openAICacheReadMul(500),
+			InputTokenPrice:          500_000,
+			OutputTokenPrice:         1_500_000,
+			CacheReadInputTokenPrice: openAICacheReadMul(500_000),
 		},
 		"gpt-4o-mini": {
-			InputTokenPrice:          15,
-			OutputTokenPrice:         60,
-			CacheReadInputTokenPrice: openAICacheReadMul(15),
+			InputTokenPrice:          15_000,
+			OutputTokenPrice:         60_000,
+			CacheReadInputTokenPrice: openAICacheReadMul(15_000),
+		},
+		"gpt-5.2": {
+			InputTokenPrice:          175_000,
+			OutputTokenPrice:         1_400_000,
+			CacheReadInputTokenPrice: 17_500,
+		},
+		"gpt-5.2-pro": {
+			InputTokenPrice:  2_100_000,
+			OutputTokenPrice: 16_800_000,
+		},
+		"gpt-5-mini": {
+			InputTokenPrice:          25_000,
+			OutputTokenPrice:         200_000,
+			CacheReadInputTokenPrice: 2_500,
 		},
 	}
 

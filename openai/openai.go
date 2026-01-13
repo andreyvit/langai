@@ -139,7 +139,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 	if out.Usage.PromptTokensDetails != nil {
 		usage.CacheReadInputTokens = out.Usage.PromptTokensDetails.CachedTokens
 	}
-	cost, _ := langai.EstimateCost(langai.ProviderOpenAI, out.Model, usage)
+	cost, costOK := langai.EstimateCost(langai.ProviderOpenAI, out.Model, usage)
 
 	return &langai.Response{
 		Provider:    langai.ProviderOpenAI,
@@ -147,6 +147,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		Message:     resultMsg,
 		Usage:       usage,
 		Cost:        cost,
+		CostOK:      costOK,
 		RawResponse: r.RawResponseBody,
 	}, nil
 }

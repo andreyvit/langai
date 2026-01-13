@@ -121,6 +121,7 @@ text := resp.Text()           // Extract text content
 calls := resp.ToolCalls()     // Extract tool calls
 usage := resp.Usage           // Token usage (with cache tracking)
 cost := resp.Cost             // Cost in dollars
+costKnown := resp.CostOK      // false if pricing for (provider, model) is unknown
 ```
 
 ### Tools

@@ -126,26 +126,21 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		}
 	}
 
+	usage := langai.Usage{
+		InputTokens:              out.Usage.InputTokens,
+		OutputTokens:             out.Usage.OutputTokens,
+		CacheReadInputTokens:     out.Usage.CacheReadInputTokens,
+		CacheCreationInputTokens: out.Usage.CacheCreationInputTokens,
+	}
+	cost, costOK := langai.EstimateCost(langai.ProviderAnthropic, out.Model, usage)
+
 	return &langai.Response{
-		Provider: langai.ProviderAnthropic,
-		Model:    out.Model,
-		Message:  resultMsg,
-		Usage: langai.Usage{
-			InputTokens:              out.Usage.InputTokens,
-			OutputTokens:             out.Usage.OutputTokens,
-			CacheReadInputTokens:     out.Usage.CacheReadInputTokens,
-			CacheCreationInputTokens: out.Usage.CacheCreationInputTokens,
-		},
-		Cost: func() langai.Price {
-			u := langai.Usage{
-				InputTokens:              out.Usage.InputTokens,
-				OutputTokens:             out.Usage.OutputTokens,
-				CacheReadInputTokens:     out.Usage.CacheReadInputTokens,
-				CacheCreationInputTokens: out.Usage.CacheCreationInputTokens,
-			}
-			c, _ := langai.EstimateCost(langai.ProviderAnthropic, out.Model, u)
-			return c
-		}(),
+		Provider:    langai.ProviderAnthropic,
+		Model:       out.Model,
+		Message:     resultMsg,
+		Usage:       usage,
+		Cost:        cost,
+		CostOK:      costOK,
 		RawResponse: r.RawResponseBody,
 	}, nil
 }
