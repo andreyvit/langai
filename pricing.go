@@ -247,6 +247,12 @@ func defaultModelPricing() map[ProviderID]map[string]ModelPricing {
 			CacheReadInputTokenPrice:     anthropicCacheReadMul(300_000),
 			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
 		},
+		"claude-sonnet-4-6": {
+			InputTokenPrice:              300_000,
+			OutputTokenPrice:             1_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(300_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
+		},
 		"claude-sonnet-4-5": {
 			InputTokenPrice:              300_000,
 			OutputTokenPrice:             1_500_000,
@@ -260,6 +266,12 @@ func defaultModelPricing() map[ProviderID]map[string]ModelPricing {
 			CacheCreationInputTokenPrice: anthropicCacheWriteMul(300_000),
 		},
 		"claude-opus-4-5": {
+			InputTokenPrice:              500_000,
+			OutputTokenPrice:             2_500_000,
+			CacheReadInputTokenPrice:     anthropicCacheReadMul(500_000),
+			CacheCreationInputTokenPrice: anthropicCacheWriteMul(500_000),
+		},
+		"claude-opus-4-6": {
 			InputTokenPrice:              500_000,
 			OutputTokenPrice:             2_500_000,
 			CacheReadInputTokenPrice:     anthropicCacheReadMul(500_000),

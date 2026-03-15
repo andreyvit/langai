@@ -8,7 +8,7 @@ import (
 func TestMessagesResponse_UnmarshalThinkingBlocks(t *testing.T) {
 	var out messagesResponse
 	if err := json.Unmarshal([]byte(`{
-		"model": "claude-sonnet-4-5",
+		"model": "claude-sonnet-4-6",
 		"content": [
 			{"type": "thinking", "thinking": "x", "signature": "sig"},
 			{"type": "text", "text": "y"},

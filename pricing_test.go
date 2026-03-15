@@ -9,7 +9,7 @@ func TestEstimateCost_AnthropicWithCaching(t *testing.T) {
 		CacheReadInputTokens:     400,
 		CacheCreationInputTokens: 100,
 	}
-	cost, ok := EstimateCost(ProviderAnthropic, "claude-sonnet-4-5", u)
+	cost, ok := EstimateCost(ProviderAnthropic, "claude-sonnet-4-6", u)
 	if !ok {
 		t.Fatalf("expected pricing to be known")
 	}
@@ -70,5 +70,9 @@ func TestLookupModelPricing_StripsDateSuffix(t *testing.T) {
 	_, ok = LookupModelPricing(ProviderAnthropic, "claude-3-5-sonnet-20241022")
 	if !ok {
 		t.Fatalf("expected date-suffixed Anthropic model to match base pricing")
+	}
+	_, ok = LookupModelPricing(ProviderAnthropic, "claude-sonnet-4-6-20251014")
+	if !ok {
+		t.Fatalf("expected date-suffixed Anthropic 4.6 model to match base pricing")
 	}
 }

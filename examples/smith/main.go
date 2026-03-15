@@ -147,9 +147,9 @@ func traslateModel(provider, model string) string {
 	case "anthropic":
 		switch model {
 		case "", "sonnet":
-			return "claude-sonnet-4-5"
+			return "claude-sonnet-4-6"
 		case "opus":
-			return "claude-opus-4-5"
+			return "claude-opus-4-6"
 		case "haiku":
 			return "claude-haiku-4-5"
 		}
