@@ -35,10 +35,30 @@ type ToolChoice struct {
 	Name string
 }
 
-func AutoToolChoice() ToolChoice             { return ToolChoice{Type: ToolChoiceAuto} }
-func NoToolChoice() ToolChoice               { return ToolChoice{Type: ToolChoiceNone} }
-func RequireToolChoice() ToolChoice          { return ToolChoice{Type: ToolChoiceRequired} }
-func ForceToolChoice(name string) ToolChoice { return ToolChoice{Type: ToolChoiceTool, Name: name} }
+func AutoToolChoice() func(Turn) ToolChoice {
+	return func(Turn) ToolChoice { return ToolChoice{Type: ToolChoiceAuto} }
+}
+
+func NoToolChoice() func(Turn) ToolChoice {
+	return func(Turn) ToolChoice { return ToolChoice{Type: ToolChoiceNone} }
+}
+
+func RequireToolChoice() func(Turn) ToolChoice {
+	return func(Turn) ToolChoice { return ToolChoice{Type: ToolChoiceRequired} }
+}
+
+func ForceToolChoice(name string) func(Turn) ToolChoice {
+	return func(Turn) ToolChoice {
+		return ToolChoice{Type: ToolChoiceTool, Name: name}
+	}
+}
+
+type Turn struct {
+	CurrentTurn    int
+	MaxTurns       int
+	CurrentToolUse int
+	MaxToolUses    int
+}
 
 type Options struct {
 	Model string
@@ -49,7 +69,7 @@ type Options struct {
 	Stop            []string
 
 	Tools      []*Tool
-	ToolChoice ToolChoice
+	ToolChoice func(Turn) ToolChoice
 
 	ResponseFormat ResponseFormat
 }

@@ -63,7 +63,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		Stop:                req.Options.Stop,
 		ResponseFormat:      mapResponseFormat(req.Options.ResponseFormat),
 		Tools:               mapTools(req.Options.Tools),
-		ToolChoice:          mapToolChoice(req.Options.ToolChoice),
+		ToolChoice:          mapToolChoice(req.Options.ToolChoice(req.Turn)),
 	}
 
 	var out chatResponse

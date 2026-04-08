@@ -16,6 +16,8 @@ type Usage struct {
 // I.e. $2 per 1M tokens = $0.002 per 1K tokens = Price(200_000) per token.
 type Price int64
 
+const PriceDenomination = 100_000_000_000
+
 func (p Price) String() string {
-	return fmt.Sprintf("$%0.2f", float64(p)/100_000_000_000)
+	return fmt.Sprintf("$%0.6f", float64(p)/PriceDenomination)
 }

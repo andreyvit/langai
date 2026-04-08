@@ -314,8 +314,14 @@ func defaultModelPricing() map[ProviderID]map[string]ModelPricing {
 
 	gemini := map[string]ModelPricing{
 		// Pricing varies by Google account/region; these defaults are placeholders.
-		"gemini-1.5-pro":   {InputTokenPrice: 0, OutputTokenPrice: 0},
-		"gemini-1.5-flash": {InputTokenPrice: 0, OutputTokenPrice: 0},
+		"gemini-1.5-pro":                {InputTokenPrice: 0, OutputTokenPrice: 0},
+		"gemini-1.5-flash":              {InputTokenPrice: 0, OutputTokenPrice: 0},
+		"gemini-2.0-flash":              {InputTokenPrice: 10_000, OutputTokenPrice: 40_000},
+		"gemini-2.5-flash":              {InputTokenPrice: 30_000, OutputTokenPrice: 250_000},
+		"gemini-2.5-pro":                {InputTokenPrice: 125_000, OutputTokenPrice: 1_000_000},
+		"gemini-3-flash-preview":        {InputTokenPrice: 50_000, OutputTokenPrice: 300_000},
+		"gemini-3-pro-preview":          {InputTokenPrice: 200_000, OutputTokenPrice: 1_200_000},
+		"gemini-3.1-flash-lite-preview": {InputTokenPrice: 25_000, OutputTokenPrice: 150_000},
 	}
 
 	return map[ProviderID]map[string]ModelPricing{

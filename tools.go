@@ -26,9 +26,10 @@ type Tool struct {
 }
 
 type ToolCall struct {
-	ID    string
-	Name  string
-	Input json.RawMessage
+	ID               string
+	Name             string
+	Input            json.RawMessage
+	ThoughtSignature string
 }
 
 func (c *ToolCall) UnmarshalInput(out any) error {
@@ -50,6 +51,7 @@ type ToolResult struct {
 
 	Content     string
 	ContentJSON json.RawMessage
+	Terminate   bool
 
 	IsError bool
 }

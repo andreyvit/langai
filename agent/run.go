@@ -64,8 +64,15 @@ func Run(ctx context.Context, client langai.Client, tools []*langai.Tool, req la
 	var totalUsage langai.Usage
 	var totalCost langai.Price
 	var toolCallsExecuted int
+	var done bool
 
 	for turn := 1; turn <= maxTurns; turn++ {
+		req.Turn = langai.Turn{
+			CurrentTurn:    turn,
+			CurrentToolUse: toolCallsExecuted,
+			MaxTurns:       maxTurns,
+			MaxToolUses:    maxToolCalls,
+		}
 		req.Messages = messages
 		resp, err := client.Complete(ctx, req)
 		if err != nil {
@@ -140,6 +147,9 @@ func Run(ctx context.Context, client langai.Client, tools []*langai.Tool, req la
 			if res.Name == "" {
 				res.Name = call.Name
 			}
+			if res.Terminate {
+				done = true
+			}
 
 			if opt.OnToolResult != nil {
 				opt.OnToolResult(res)
@@ -147,6 +157,17 @@ func Run(ctx context.Context, client langai.Client, tools []*langai.Tool, req la
 
 			messages = append(messages, langai.ToolResultMsg(res))
 			toolCallsExecuted++
+		}
+
+		if done {
+			return &RunResult{
+				Final:     resp,
+				Messages:  messages,
+				Turns:     turn,
+				ToolCalls: toolCallsExecuted,
+				Usage:     totalUsage,
+				Cost:      totalCost,
+			}, nil
 		}
 	}
 

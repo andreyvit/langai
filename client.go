@@ -11,6 +11,7 @@ type Client interface {
 }
 
 type Request struct {
+	Turn     Turn
 	Messages []Message
 	Options  Options
 

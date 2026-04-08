@@ -55,7 +55,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 			StopSequences:   req.Options.Stop,
 		},
 		Tools:      mapTools(req.Options.Tools),
-		ToolConfig: mapToolConfig(req.Options.ToolChoice),
+		ToolConfig: mapToolConfig(req.Options.ToolChoice(req.Turn)),
 	}
 
 	var out generateContentResponse
@@ -95,9 +95,10 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 				return nil, fmt.Errorf("gemini: invalid functionCall args: %w", err)
 			}
 			resultMsg.Parts = append(resultMsg.Parts, langai.ToolCallPart(langai.ToolCall{
-				ID:    "", // Gemini doesn't provide a stable ID; caller can synthesize one if needed.
-				Name:  p.FunctionCall.Name,
-				Input: in,
+				ID:               "",
+				Name:             p.FunctionCall.Name,
+				Input:            in,
+				ThoughtSignature: p.ThoughtSignature,
 			}))
 		}
 	}
@@ -216,6 +217,7 @@ func mapParts(in []*langai.Part, allowToolParts allowToolParts) ([]part, error) 
 					Name: p.ToolCall.Name,
 					Args: args,
 				},
+				ThoughtSignature: p.ToolCall.ThoughtSignature,
 			})
 		case langai.PartToolResult:
 			if !bool(allowToolParts) {
@@ -325,6 +327,7 @@ type content struct {
 }
 
 type part struct {
+	ThoughtSignature string            `json:"thoughtSignature,omitempty"`
 	Text             string            `json:"text,omitempty"`
 	InlineData       *blob             `json:"inlineData,omitempty"`
 	FunctionCall     *functionCall     `json:"functionCall,omitempty"`

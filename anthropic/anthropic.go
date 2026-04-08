@@ -71,7 +71,7 @@ func (c *Client) Complete(ctx context.Context, req langai.Request) (*langai.Resp
 		TopP:          req.Options.TopP,
 		StopSequences: req.Options.Stop,
 		Tools:         mapTools(req.Options.Tools),
-		ToolChoice:    mapToolChoice(req.Options.ToolChoice),
+		ToolChoice:    mapToolChoice(req.Options.ToolChoice(req.Turn)),
 	}
 
 	var out messagesResponse
