@@ -103,10 +103,6 @@ func Run(ctx context.Context, client langai.Client, tools []*langai.Tool, req la
 			}, nil
 		}
 
-		if turn == maxTurns {
-			return nil, fmt.Errorf("agent: hit MaxTurns=%d with pending tool calls", maxTurns)
-		}
-
 		for i := range calls {
 			call := calls[i]
 			if call == nil {
@@ -168,6 +164,10 @@ func Run(ctx context.Context, client langai.Client, tools []*langai.Tool, req la
 				Usage:     totalUsage,
 				Cost:      totalCost,
 			}, nil
+		}
+
+		if turn == maxTurns {
+			return nil, fmt.Errorf("agent: hit MaxTurns=%d with pending tool calls", maxTurns)
 		}
 	}
 
